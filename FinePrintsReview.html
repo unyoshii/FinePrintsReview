@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinePrints Reviews</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>FinePrints Reviews</h1>
+      <p>We value your feedback! Share your experience with us.</p>
+    </header>
+
+    <!-- Review Form -->
+    <section class="review-form">
+      <h2>Leave a Review</h2>
+      <form id="reviewForm">
+        <div class="form-group">
+          <label for="name">Your Name:</label>
+          <input type="text" id="name" name="name" required>
+        </div>
+        <div class="form-group">
+          <label for="rating">Rating:</label>
+          <div class="star-rating">
+            <span data-value="1">&#9734;</span>
+            <span data-value="2">&#9734;</span>
+            <span data-value="3">&#9734;</span>
+            <span data-value="4">&#9734;</span>
+            <span data-value="5">&#9734;</span>
+          </div>
+          <input type="hidden" id="rating" name="rating" required>
+        </div>
+        <div class="form-group">
+          <label for="review">Your Review:</label>
+          <textarea id="review" name="review" rows="5" required></textarea>
+        </div>
+        <button type="submit">Submit Review</button>
+      </form>
+    </section>
+
+    <!-- Review Display Section -->
+    <section class="reviews">
+      <h2>Customer Reviews</h2>
+      <div id="reviewsList">
+        <!-- Reviews will be dynamically added here -->
+      </div>
+    </section>
+  </div>
+
+  
+
+  <script src="form.js"></script>
+</body>
+</html>
