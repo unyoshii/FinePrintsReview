@@ -1,172 +1,168 @@
-// Generate or retrieve a unique user ID for the current customer
-let currentUserId = localStorage.getItem('currentUserId');
-if (!currentUserId) {
-  currentUserId = '_' + Math.random().toString(36).substr(2, 9);
-  localStorage.setItem('currentUserId', currentUserId);
+// Import Firebase modules (Ensure this is in a module script)
+import {
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+
+import {
+  getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// =====================================================
+// ================  FIREBASE SETUP  ===================
+// =====================================================
+
+// 🔹 Your Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAComGCasroxvaETCeJ8HH3lFiEr9y92o8",
+  authDomain: "fineprintsreviews.firebaseapp.com",
+  projectId: "fineprintsreviews",
+  storageBucket: "fineprintsreviews.appspot.com",  // ✅ Corrected storageBucket
+  messagingSenderId: "59498916202",
+  appId: "1:59498916202:web:088089140a347b3c9d9d13",
+  measurementId: "G-CBEM49814Z"
+};
+
+// 🔹 Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// =====================================================
+// ============  SIMPLE USER "AUTH" LOGIC  =============
+// =====================================================
+// NOTE: This is NOT a secure method. It's only a demo for
+// "delete your own review" functionality.
+
+let userId = localStorage.getItem("userId");
+if (!userId) {
+  // Generate a random user ID
+  userId = crypto.randomUUID();
+  localStorage.setItem("userId", userId);
+}
+console.log("Your local userId:", userId);
+
+// =====================================================
+// ===========  ADD & DISPLAY REVIEWS LOGIC  ===========
+// =====================================================
+
+// 🔹 Function to Add Review to Firestore
+async function addReview(name, rating,reviewText)
+{
+  try 
+  {
+    await addDoc(collection(db,"reviews"),{
+      userId,
+      name,
+      rating,
+      review: reviewText,
+      timestamp: new Date()
+
+    });
+    console.log ("Review added!");
+  } catch (error)
+  {
+    console.log("Error adding review: ", error);
+  }
 }
 
-// Star Rating Functionality
-const stars = document.querySelectorAll('.star-rating span');
-const ratingInput = document.getElementById('rating');
 
-stars.forEach(star => {
-  star.addEventListener('click', function () {
-    const value = this.getAttribute('data-value');
-    ratingInput.value = value; // Set the hidden input value
+// 🔹 Function to Remove a Review (if it belongs to the user)
+async function removeReview(docId) {
+  const confirmDelete = confirm("Are you sure you want to delete this review?");
+  if (!confirmDelete) return;
 
-    // Highlight selected stars
-    stars.forEach((s, index) => {
-      if (index < value) {
-        s.classList.add('selected');
-      } else {
-        s.classList.remove('selected');
+  try {
+    await deleteDoc(doc(db, "reviews", docId));
+    console.log("Review deleted!");
+  } catch (error) {
+    console.error("Error deleting review: ", error);
+  }
+}
+
+// 🔹 Function to Fetch Reviews in Real-Time and Display
+function loadReviews() {
+  onSnapshot(collection(db, "reviews"), (snapshot) => {
+    const reviewsList = document.getElementById("reviewsList");
+    reviewsList.innerHTML = ""; // Clear existing reviews
+
+    snapshot.forEach((docSnap) => {
+      const reviewData = docSnap.data();
+      const docId = docSnap.id;  // Firestore document ID
+      const { name, rating, review, timestamp, userId: reviewerId } = reviewData;
+
+      // Convert timestamp to a readable date/time
+      let dateTimeString = "";
+      if (timestamp) {
+        // Firestore timestamp objects have a .toDate() method
+        const dateObj = timestamp.toDate
+          ? timestamp.toDate()
+          : new Date(timestamp);
+        dateTimeString = dateObj.toLocaleString();
       }
+
+      // Create the review "card"
+      const reviewElement = document.createElement("div");
+      reviewElement.classList.add("review-item");
+      reviewElement.innerHTML = `
+        <div class="review-header">
+          <h3 class="review-name">${name}</h3>
+          <span class="review-date">${dateTimeString}</span>
+        </div>
+        <div class="review-rating">${"★".repeat(rating)}</div>
+        <p>${review}</p>
+      `;
+
+      // Only show "Delete" button if the review belongs to this user
+      if (reviewerId === userId) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.classList.add("delete-btn");
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", () => removeReview(docId));
+        reviewElement.appendChild(deleteBtn);
+      }
+
+      reviewsList.appendChild(reviewElement);
     });
   });
-});
-
-// Save reviews to localStorage
-function saveReviews(reviews) {
-  localStorage.setItem('reviews', JSON.stringify(reviews));
 }
 
-// Load reviews from localStorage
-function loadReviews() {
-  const reviews = JSON.parse(localStorage.getItem('reviews')) || [];
-  return reviews;
-}
+// =====================================================
+// ==============  FORM & STAR RATING LOGIC  ===========
+// =====================================================
 
-// Format date and time for display
-function formatDateTime(date) {
-  const options = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  };
-  return new Date(date).toLocaleString('en-US', options);
-}
-
-/* // Compute and update the overall average rating
-function updateOverallScore() {
-  const reviews = loadReviews();
-  const overallScoreElement = document.getElementById('overallScore');
-  const headerOverallRatingElement = document.getElementById('headerOverallRating');
-  
-  if (reviews.length === 0) {
-    if (overallScoreElement) {
-      overallScoreElement.textContent = 'Overall Score: No reviews yet';
-    }
-    if (headerOverallRatingElement) {
-      headerOverallRatingElement.textContent = 'No reviews yet';
-    }
-    return;
-  }
-  
-  const totalRating = reviews.reduce((sum, review) => sum + Number(review.rating), 0);
-  const averageRating = totalRating / reviews.length;
-  const averageText = averageRating.toFixed(1) + ' / 5';
-  
-  if (overallScoreElement) {
-    overallScoreElement.textContent = `Overall Score: ${averageText}`;
-  }
-  if (headerOverallRatingElement) {
-    headerOverallRatingElement.textContent = averageText;
-  }
-} */
-
-// Render reviews on the page and update overall score
-function renderReviews() {
-  const reviews = loadReviews();
-  const reviewsList = document.getElementById('reviewsList');
-  reviewsList.innerHTML = ''; // Clear previous reviews
-
-  reviews.forEach((review, index) => {
-    const reviewItem = document.createElement('div');
-    reviewItem.classList.add('review-item');
-
-    // Only display the delete button if the review belongs to the current user
-    let deleteButtonHTML = '';
-    if (review.userId === currentUserId) {
-      deleteButtonHTML = `<button class="delete-btn" data-index="${index}">🗑️</button>`;
-    }
-
-    reviewItem.innerHTML = `
-      <h3>${review.name}</h3>
-      <p class="rating">Rating: ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</p>
-      <p>${review.review}</p>
-      <p class="timestamp">${formatDateTime(review.timestamp)}</p>
-      ${deleteButtonHTML}
-    `;
-    reviewsList.appendChild(reviewItem);
-  });
-
-  // Attach event listeners to delete buttons (for reviews belonging to the current user)
-  document.querySelectorAll('.delete-btn').forEach(button => {
-    button.addEventListener('click', deleteReview);
-  });
-
-  // Update the overall score display in both the reviews section and the header
-  updateOverallScore();
-}
-
-// Delete a review (only if it belongs to the current user)
-function deleteReview(e) {
-  const index = e.target.getAttribute('data-index');
-  const reviews = loadReviews();
-
-  // Double-check ownership before deletion
-  if (reviews[index].userId !== currentUserId) {
-    alert('You can only delete your own review.');
-    return;
-  }
-
-  reviews.splice(index, 1); // Remove the review
-  saveReviews(reviews);       // Update localStorage
-  renderReviews();            // Re-render reviews and update overall score
-}
-
-// Handle form submission
-document.getElementById('reviewForm').addEventListener('submit', function (e) {
+// 🔹 Handle Form Submission
+document.getElementById("reviewForm").addEventListener("submit", (e) => {
   e.preventDefault();
 
-  // Get form values
-  const name = document.getElementById('name').value;
-  const rating = document.getElementById('rating').value;
-  const reviewText = document.getElementById('review').value;
+  const name = document.getElementById("name").value;
+  const rating = parseInt(document.getElementById("rating").value);
+  const reviewText = document.getElementById("review").value;
 
-  // Validate rating selection
-  if (!rating) {
-    alert('Please select a rating.');
-    return;
+  if (name && rating && reviewText) {
+    addReview(name, rating, reviewText);
+    document.getElementById("reviewForm").reset();
   }
-
-  // Create a new review object (including a timestamp and the current user's ID)
-  const newReview = {
-    name,
-    rating,
-    review: reviewText,
-    timestamp: new Date().toISOString(),
-    userId: currentUserId,
-  };
-
-  // Save the new review and update the display
-  const reviews = loadReviews();
-  reviews.push(newReview);
-  saveReviews(reviews);
-  renderReviews();
-
-  // Clear the form and reset star selection
-  document.getElementById('reviewForm').reset();
-  stars.forEach(star => star.classList.remove('selected'));
 });
 
-// Render reviews when the page loads
-document.addEventListener('DOMContentLoaded', renderReviews);
+// 🔹 Handle Star Rating Selection
+const starSpans = document.querySelectorAll(".star-rating span");
+starSpans.forEach((star) => {
+  star.addEventListener("click", function () {
+    const ratingValue = +this.getAttribute("data-value");
+    document.getElementById("rating").value = ratingValue;
 
+    // Reset all stars to default (☆)
+    starSpans.forEach((s) => {
+      s.innerHTML = "☆";
+      s.classList.remove("filled");
+    });
 
+    // Fill up to the chosen rating
+    for (let i = 0; i < ratingValue; i++) {
+      starSpans[i].innerHTML = "★";
+      starSpans[i].classList.add("filled");
+    }
+  });
+});
 
-  
-
+// 🔹 Load Reviews on Page Load
+loadReviews();
